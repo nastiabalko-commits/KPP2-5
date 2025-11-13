@@ -13,7 +13,7 @@
   <!-- JS компоненти -->
   <script src="./login/login.js"></script>
   <script src="./sidebar/sidebar.js"></script>
-  <script src="./chat.js"></script>     <!-- файли chat.html/chat.js у корені -->
+  <script src="./chat.js"></script>
   <script src="./user/user.js"></script>
 
   <!-- CSS -->
@@ -24,60 +24,51 @@
 </head>
 
 <body class="index-container bg-gray-100 flex justify-center">
-  <!-- головний контейнер -->
+
   <div x-data="chatApp()" :class="accessToken ? '' : 'items-center'" class="flex w-full">
 
-    <!-- Сайдбар (кімнати) -->
+    <!-- Сайдбар (ROOMS) -->
     <div id="sidebar-container" class="w-1/4"></div>
 
-    <!-- Область чату -->
+    <!-- Основний чат -->
     <div class="chat-area p-6 flex flex-col space-y-4 w-2/4">
-      <!-- Контейнер логіну -->
       <div id="login-container"></div>
-
-      <!-- Інформація користувача / Room ID / messages -->
       <div id="chat-container" class="flex-1"></div>
     </div>
 
-    <!-- Контейнер користувачів -->
+    <!-- Users (КП2-9) -->
     <div id="user-container" class="w-1/4"></div>
   </div>
 
+
   <script>
-    // ========================
-    // Завантаження шаблонів
-    // ========================
+    /* ========================================
+       Завантаження компонентів
+    ======================================== */
     document.addEventListener('DOMContentLoaded', () => {
-      // login
+
       fetch('./login/login.html')
         .then(r => r.text())
-        .then(html => document.getElementById('login-container').innerHTML = html)
-        .catch(err => console.error('Error loading login:', err));
+        .then(html => document.getElementById('login-container').innerHTML = html);
 
-      // sidebar
       fetch('./sidebar/sidebar.html')
         .then(r => r.text())
-        .then(html => document.getElementById('sidebar-container').innerHTML = html)
-        .catch(err => console.error('Error loading sidebar:', err));
+        .then(html => document.getElementById('sidebar-container').innerHTML = html);
 
-      // chat (файл у корені)
       fetch('./chat.html')
         .then(r => r.text())
-        .then(html => document.getElementById('chat-container').innerHTML = html)
-        .catch(err => console.error('Error loading chat:', err));
+        .then(html => document.getElementById('chat-container').innerHTML = html);
 
-      // user
       fetch('./user/user.html')
         .then(r => r.text())
-        .then(html => document.getElementById('user-container').innerHTML = html)
-        .catch(err => console.error('Error loading user:', err));
+        .then(html => document.getElementById('user-container').innerHTML = html);
     });
 
-    // ========================
-    // ФУНКЦІЇ ДОДАТКА (Matrix)
-    // ========================
 
-    // ---- login ----
+    /* ========================================
+       Функції Matrix (КП2-8 + КП2-9)
+    ======================================== */
+
     async function login() {
       try {
         const res = await fetch('https://matrix.org/_matrix/client/r0/login', {
@@ -89,294 +80,292 @@
             password: this.password
           })
         });
+
         const data = await res.json();
 
         if (data.access_token) {
           this.accessToken = data.access_token;
           this.userId = data.user_id;
+
           await this.fetchRoomsWithNames();
           await this.fetchMessages();
           await this.fetchRoomMembers();
 
-          // періодичне оновлення
-          if (!this._syncInterval) {
+          if (!this._syncInterval)
             this._syncInterval = setInterval(async () => {
               await this.fetchRoomsWithNames();
               await this.fetchMessages();
               await this.fetchRoomMembers();
             }, 5000);
-          }
+
         } else {
-          this.error = 'Login failed: ' + (data.error || 'Unknown error');
-          console.warn('Login failed:', data);
+          alert("Login failed");
         }
+
       } catch (e) {
         console.error('Login error:', e);
-        this.error = 'Error during login: ' + e.message;
       }
     }
 
-    // ---- create room ----
+
     async function createRoom() {
-      if (!this.newRoomName || !this.newRoomName.trim()) return;
+      if (!this.newRoomName) return;
+
       try {
-        const res = await fetch('https://matrix.org/_matrix/client/r0/createRoom', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.accessToken}`
-          },
-          body: JSON.stringify({
-            preset: 'private_chat',
-            name: this.newRoomName.trim(),
-            invite: this.inviteUser ? [this.inviteUser.trim()] : []
-          })
-        });
+        const res = await fetch(
+          "https://matrix.org/_matrix/client/r0/createRoom",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${this.accessToken}`
+            },
+            body: JSON.stringify({
+              preset: "private_chat",
+              name: this.newRoomName.trim()
+            })
+          }
+        );
+
         const data = await res.json();
+
         if (data.room_id) {
           this.newRoomId = data.room_id;
           this.roomId = data.room_id;
+
           this.messages = [];
-          this.lastSyncToken = '';
+          this.lastSyncToken = "";
+
           await this.fetchRoomsWithNames();
           await this.fetchMessages();
           await this.fetchRoomMembers();
-          this.newRoomName = '';
-          this.inviteUser = '';
-          alert('Room created: ' + data.room_id);
-        } else {
-          console.warn('Create room failed:', data);
-          alert('Create room failed: ' + (data.error || 'Unknown error'));
         }
+
       } catch (e) {
-        console.error('Create room error:', e);
-        alert('Create room error: ' + e.message);
+        console.error("createRoom error:", e);
       }
     }
 
-    // ---- fetch rooms ----
+
     async function fetchRoomsWithNames() {
       if (!this.accessToken) return;
+
       try {
-        const res = await fetch('https://matrix.org/_matrix/client/r0/joined_rooms', {
-          headers: { 'Authorization': `Bearer ${this.accessToken}` }
-        });
+        const res = await fetch(
+          "https://matrix.org/_matrix/client/r0/joined_rooms",
+          { headers: { "Authorization": `Bearer ${this.accessToken}` } }
+        );
+
         const data = await res.json();
+
         if (data.joined_rooms) {
-          const promises = data.joined_rooms.map(async (roomId) => {
+          const arr = data.joined_rooms.map(async (roomId) => {
+
             try {
-              const nameRes = await fetch(
+              const r = await fetch(
                 `https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(roomId)}/state/m.room.name`,
-                { headers: { 'Authorization': `Bearer ${this.accessToken}` } }
+                { headers: { "Authorization": `Bearer ${this.accessToken}` } }
               );
-              const nameData = await nameRes.json();
-              return { roomId, name: nameData?.name || roomId };
-            } catch (e) {
+
+              const name = await r.json();
+              return { roomId, name: name?.name || roomId };
+
+            } catch {
               return { roomId, name: roomId };
             }
           });
-          this.rooms = (await Promise.all(promises)).sort((a,b)=>a.name.localeCompare(b.name));
+
+          this.rooms = (await Promise.all(arr))
+            .sort((a, b) => a.name.localeCompare(b.name));
+
           if (!this.roomId && this.rooms.length) {
             this.roomId = this.rooms[0].roomId;
             await this.fetchMessages();
             await this.fetchRoomMembers();
           }
         }
+
       } catch (e) {
-        console.error('Fetch rooms error:', e);
+        console.error("fetchRooms error:", e);
       }
     }
 
-    // ---- send message ----
+
     async function sendMessage() {
-      if (!this.newMessage || !this.newMessage.trim() || !this.roomId) return;
-      const body = this.newMessage.trim();
-      this.newMessage = '';
+      if (!this.newMessage || !this.roomId) return;
+      const msg = this.newMessage.trim();
+      this.newMessage = "";
+
       try {
-        const endpoint = `https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(this.roomId)}/send/m.room.message`;
-        const res = await fetch(endpoint, {
-          method: 'POST',
+        const url =
+          `https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(this.roomId)}/send/m.room.message`;
+
+        const res = await fetch(url, {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.accessToken}`
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${this.accessToken}`
           },
-          body: JSON.stringify({ msgtype: 'm.text', body })
+          body: JSON.stringify({ msgtype: "m.text", body: msg })
         });
+
         const data = await res.json();
-        if (data.event_id) {
-          this.messages.push({ id: data.event_id, sender: this.userId, body });
-        } else {
-          console.warn('Send message failed:', data);
-          alert('Send failed: ' + (data.errcode || JSON.stringify(data)));
-        }
+
+        if (data.event_id)
+          this.messages.push({ id: data.event_id, sender: this.userId, body: msg });
+
       } catch (e) {
-        console.error('Send message error:', e);
+        console.error("sendMessage error:", e);
       }
     }
 
-    // ---- fetch messages (sync) ----
+
     async function fetchMessages() {
       if (!this.accessToken || !this.roomId) return;
+
       try {
         const url = this.lastSyncToken
-          ? `https://matrix.org/_matrix/client/r0/sync?since=${this.lastSyncToken}&timeout=30000`
-          : `https://matrix.org/_matrix/client/r0/sync?timeout=30000`;
+          ? `https://matrix.org/_matrix/client/r0/sync?since=${this.lastSyncToken}`
+          : `https://matrix.org/_matrix/client/r0/sync`;
+
         const res = await fetch(url, {
-          headers: { 'Authorization': `Bearer ${this.accessToken}` }
+          headers: { "Authorization": `Bearer ${this.accessToken}` }
         });
+
         const data = await res.json();
-        if (data.next_batch) {
+
+        if (data.next_batch)
           this.lastSyncToken = data.next_batch;
-          // timeline events for current room
-          if (data.rooms?.join?.[this.roomId]) {
-            const roomData = data.rooms.join[this.roomId];
-            roomData.timeline?.events?.forEach(event => {
-              if (event.type === 'm.room.message' && !this.messages.find(m => m.id===event.event_id)) {
-                this.messages.push({
-                  id: event.event_id,
-                  body: event.content?.body || '',
-                  sender: event.sender
-                });
-              }
-            });
-          }
-          // auto-join invites
-          if (data.rooms?.invite) {
-            for (const room of Object.keys(data.rooms.invite)) {
-              try { await this.joinRoom(room); } catch(e){ /* ignore */ }
-            }
-          }
-        } else {
-          console.warn('Sync returned no next_batch');
-        }
-      } catch (e) {
-        console.error('Fetch messages error:', e);
-      }
-    }
 
-    // ---- invite user ----
-    async function inviteUserToRoom() {
-      if (!this.inviteUser || !this.inviteUser.trim() || !this.roomId) return;
-      try {
-        const res = await fetch(`https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(this.roomId)}/invite`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.accessToken}`
-          },
-          body: JSON.stringify({ user_id: this.inviteUser.trim() })
+        const room = data.rooms?.join?.[this.roomId];
+        room?.timeline?.events?.forEach(ev => {
+          if (ev.type === "m.room.message")
+            if (!this.messages.find(m => m.id === ev.event_id))
+              this.messages.push({
+                id: ev.event_id,
+                body: ev.content?.body || "",
+                sender: ev.sender
+              });
         });
-        const data = await res.json();
-        if (data.errcode) {
-          console.warn('Invite failed:', data);
-          alert('Invite failed: ' + (data.error || data.errcode));
-        } else {
-          this.inviteUser = '';
-          alert('Invite sent');
-          await this.fetchRoomMembers();
-        }
+
       } catch (e) {
-        console.error('Invite error:', e);
+        console.error("fetchMessages error:", e);
       }
     }
 
-    // ---- join room ----
-    async function joinRoom(roomToJoin) {
-      // accept either argument or this.joinRoomId
-      const roomIdToJoin = roomToJoin || this.joinRoomId?.trim();
-      if (!roomIdToJoin) return;
-      try {
-        const res = await fetch(`https://matrix.org/_matrix/client/r0/join/${encodeURIComponent(roomIdToJoin)}`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${this.accessToken}` }
-        });
-        const data = await res.json();
-        if (data.room_id) {
-          this.roomId = roomIdToJoin;
-          this.joinRoomId = '';
-          this.messages = [];
-          this.lastSyncToken = '';
-          await this.fetchRoomsWithNames();
-          await this.fetchMessages();
-          await this.fetchRoomMembers();
-        } else {
-          console.warn('Join failed:', data);
-          alert('Join failed: ' + (data.error || JSON.stringify(data)));
-        }
-      } catch (e) {
-        console.error('Join room error:', e);
-      }
-    }
 
-    // ---- fetch room members ----
+    /* ====================== КП2-9 ====================== */
+
     async function fetchRoomMembers() {
-      if (!this.accessToken || !this.roomId) { this.roomMembers = []; return; }
+      if (!this.accessToken || !this.roomId) return;
+
       try {
-        const res = await fetch(`https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(this.roomId)}/joined_members`, {
-          headers: { 'Authorization': `Bearer ${this.accessToken}` }
-        });
+        const res = await fetch(
+          `https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(this.roomId)}/joined_members`,
+          { headers: { "Authorization": `Bearer ${this.accessToken}` } }
+        );
+
         const data = await res.json();
-        // data.joined { "@user:matrix.org": { display_name, avatar_url } }
-        this.roomMembers = Object.entries(data.joined || {}).map(([userId, info]) => ({
-          userId,
-          displayName: info.display_name || userId.split(':')[0].substring(1),
+
+        this.roomMembers = Object.entries(data.joined || {}).map(([id, info]) => ({
+          userId: id,
+          displayName: info.display_name || id.split(":")[0].substring(1),
           avatarUrl: info.avatar_url || null
         }));
+
       } catch (e) {
-        console.error('Error fetching room members:', e);
+        console.error("fetchRoomMembers error:", e);
         this.roomMembers = [];
       }
     }
 
-    // ---- get room name ----
-    function getRoomName(roomId) {
-      return this.rooms.find(r => r.roomId === roomId)?.name || roomId;
+
+    async function kickUser(userId) {
+      try {
+        const res = await fetch(
+          `https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(this.roomId)}/kick`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${this.accessToken}`
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              reason: "Removed by admin"
+            })
+          }
+        );
+
+        const data = await res.json();
+
+        if (!data.errcode)
+          await this.fetchRoomMembers();
+
+      } catch (e) {
+        console.error("kickUser error:", e);
+      }
     }
 
-    // ---- switch room ----
-    function switchRoom(roomId) {
-      if (!roomId) return;
-      this.roomId = roomId;
-      this.messages = [];
-      this.lastSyncToken = '';
-      this.fetchMessages();
-      this.fetchRoomMembers();
+
+    async function leaveRoom() {
+      try {
+        const res = await fetch(
+          `https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(this.roomId)}/leave`,
+          { method: "POST", headers: { "Authorization": `Bearer ${this.accessToken}` } }
+        );
+
+        await this.fetchRoomsWithNames();
+
+        if (this.rooms.length) {
+          this.roomId = this.rooms[0].roomId;
+          await this.fetchMessages();
+          await this.fetchRoomMembers();
+        } else {
+          this.roomId = "";
+          this.messages = [];
+          this.roomMembers = [];
+        }
+
+      } catch (e) {
+        console.error("leaveRoom error:", e);
+      }
     }
 
-    // ========================
-    // Стан Alpine.js
-    // ========================
+    /* Alpine.js */
     function chatApp() {
       return {
-        username: '',
-        password: '',
-        accessToken: '',
-        userId: '',
-        roomId: '',
-        joinRoomId: '',
-        newRoomName: '',
-        newRoomId: '',
+        username: "",
+        password: "",
+        accessToken: "",
+        userId: "",
+        roomId: "",
+        joinRoomId: "",
+        newRoomName: "",
+        newRoomId: "",
         rooms: [],
         messages: [],
-        newMessage: '',
-        inviteUser: '',
-        error: '',
-        lastSyncToken: '',
+        newMessage: "",
+        inviteUser: "",
         roomMembers: [],
+        lastSyncToken: "",
 
-        // methods
         login,
         createRoom,
         fetchRoomsWithNames,
-        getRoomName,
-        switchRoom,
-        inviteUserToRoom,
-        joinRoom,
         sendMessage,
         fetchMessages,
-        fetchRoomMembers
-      }
+        inviteUserToRoom,
+        joinRoom,
+        fetchRoomMembers,
+        kickUser,
+        leaveRoom,
+        switchRoom,
+        getRoomName
+      };
     }
+
   </script>
+
 </body>
 </html>
