@@ -1,33 +1,215 @@
+/* ============================
+   Загальні стилі сторінки
+============================ */
 html {
   height: 100%;
 }
 
 .index-container {
   height: 100vh;
+  overflow: hidden;
 }
 
+/* ============================
+   Sidebar (ROOMS)
+============================ */
 .sidebar {
   min-width: 250px;
+  background: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
 }
 
-.chat-area {
-  flex-grow: 1;
+.sidebar-list {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
-.message-input {
-  min-height: 80px;
+.sidebar-list li {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s;
 }
 
-.room-list li {
-  padding: 8px;
-  transition: background-color 0.2s;
-}
-
-.room-list li:hover {
+.sidebar-list li:hover {
   background-color: #e0e7ff;
 }
 
-.room-list li.active {
+.sidebar-list li.active {
   background-color: #bfdbfe;
-  font-weight: 500;
+  font-weight: 600;
+}
+
+/* Режим редагування кімнати */
+.rename-input {
+  width: 100%;
+  padding: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.rename-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.rename-btn,
+.cancel-rename-btn {
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.rename-btn {
+  background: #4f46e5;
+  color: white;
+}
+
+.rename-btn:hover {
+  background: #4338ca;
+}
+
+.cancel-rename-btn {
+  background: #e5e7eb;
+}
+
+.cancel-rename-btn:hover {
+  background: #d1d5db;
+}
+
+/* ============================
+   Chat area
+============================ */
+.chat-area {
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+#messages {
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+/* ============================
+   Повідомлення
+============================ */
+.message-block {
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.message-block:hover {
+  background: #f1f5f9;
+}
+
+/* Кнопки Edit/Delete */
+.message-actions {
+  display: none;
+  gap: 8px;
+}
+
+.message-block:hover .message-actions {
+  display: flex;
+}
+
+.message-actions button {
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-edit {
+  color: #2563eb;
+}
+
+.btn-edit:hover {
+  text-decoration: underline;
+}
+
+.btn-delete {
+  color: #dc2626;
+}
+
+.btn-delete:hover {
+  text-decoration: underline;
+}
+
+/* Позначка відредагованого повідомлення */
+.msg-edited {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* ============================
+   Режим редагування повідомлень
+============================ */
+.edit-message-box {
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  resize: none;
+}
+
+.edit-controls {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+}
+
+.save-edit-btn {
+  background: #4f46e5;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.cancel-edit-btn {
+  background: #e5e7eb;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.save-edit-btn:hover {
+  background: #4338ca;
+}
+
+.cancel-edit-btn:hover {
+  background: #d1d5db;
+}
+
+/* ============================
+   Message input
+============================ */
+.message-input {
+  min-height: 80px;
+  padding: 10px;
+}
+
+/* Scrollbar (красивий як у КП2-9) */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }

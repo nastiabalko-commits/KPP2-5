@@ -1,17 +1,19 @@
-
+/* ======================
+      CREATE ROOM
+====================== */
 async function createRoom() {
   if (!this.newRoomName.trim()) return;
+
   try {
-    const res = await fetch('https://matrix.org/_matrix/client/r0/createRoom', {
-      method: 'POST',
+    const res = await fetch(`https://matrix.org/_matrix/client/r0/createRoom`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.accessToken}`
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${this.accessToken}`
       },
       body: JSON.stringify({
-        preset: 'private_chat',
-        name: this.newRoomName.trim(),
-        invite: this.inviteUser ? [this.inviteUser.trim()] : []
+        preset: "private_chat",
+        name: this.newRoomName.trim()
       })
     });
 
@@ -21,133 +23,159 @@ async function createRoom() {
       this.newRoomId = data.room_id;
       this.roomId = data.room_id;
       this.messages = [];
-      this.lastSyncToken = '';
+      this.lastSyncToken = "";
+
       await this.fetchRoomsWithNames();
-      this.inviteUser = '';
-      alert(`Room "${this.newRoomName}" created with ID: ${this.newRoomId}`);
-    } else {
-      alert('Create room failed: ' + (data.error || 'Unknown error'));
+      alert(`Room created: ${this.newRoomName}`);
+
+      this.newRoomName = "";
     }
   } catch (e) {
-    alert('Create room error: ' + e.message);
-    console.error(e);
+    console.error("Create room error:", e);
   }
 }
 
-// ----------------------------
-// ✅ Отримання списку кімнат
-// ----------------------------
+
+/* ======================
+   FETCH ROOMS
+====================== */
 async function fetchRoomsWithNames() {
   if (!this.accessToken) return;
+
   try {
-    const res = await fetch('https://matrix.org/_matrix/client/r0/joined_rooms', {
-      headers: { 'Authorization': `Bearer ${this.accessToken}` }
-    });
+    const res = await fetch(
+      "https://matrix.org/_matrix/client/r0/joined_rooms",
+      { headers: { "Authorization": `Bearer ${this.accessToken}` } }
+    );
 
     const data = await res.json();
 
     if (data.joined_rooms) {
-      const roomPromises = data.joined_rooms.map(async (roomId) => {
-        const nameRes = await fetch(
-          `https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(roomId)}/state/m.room.name`,
-          { headers: { 'Authorization': `Bearer ${this.accessToken}` } }
-        );
-        const nameData = await nameRes.json();
-        return { roomId, name: nameData?.name || roomId };
+      const promises = data.joined_rooms.map(async (roomId) => {
+        try {
+          const nameRes = await fetch(
+            `https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(roomId)}/state/m.room.name`,
+            { headers: { "Authorization": `Bearer ${this.accessToken}` } }
+          );
+          const name = await nameRes.json();
+
+          return { roomId, name: name?.name || roomId };
+        } catch {
+          return { roomId, name: roomId };
+        }
       });
 
-      this.rooms = (await Promise.all(roomPromises)).sort((a, b) =>
-        a.roomId.localeCompare(b.roomId)
-      );
+      this.rooms = (await Promise.all(promises))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-      if (this.rooms.length > 0 && !this.roomId) {
+      if (!this.roomId && this.rooms.length > 0) {
         this.roomId = this.rooms[0].roomId;
       }
     }
+
   } catch (e) {
-    console.error('Fetch rooms error:', e);
+    console.error("Fetch rooms error:", e);
   }
 }
 
-// ----------------------------
-// ✅ Отримання назви кімнати
-// ----------------------------
-function getRoomName(roomId) {
-  return this.rooms.find(r => r.roomId === roomId)?.name || roomId;
+
+/* ======================
+   RENAME ROOM (КП2-10)
+====================== */
+async function renameRoom(roomId) {
+  if (!this.renameText.trim()) return;
+
+  try {
+    const res = await fetch(
+      `https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(roomId)}/state/m.room.name`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.accessToken}`
+        },
+        body: JSON.stringify({ name: this.renameText.trim() })
+      }
+    );
+
+    if (res.ok) {
+      await this.fetchRoomsWithNames();
+      this.renameMode = null;
+      this.renameText = "";
+    }
+
+  } catch (e) {
+    console.error("Rename error:", e);
+  }
 }
 
-// ----------------------------
-// ✅ Перемикання між кімнатами
-// ----------------------------
+
+/* ======================
+   DELETE ROOM (КП2-10)
+====================== */
+async function deleteRoom(roomId) {
+  const confirmDelete = confirm("Delete this room? This cannot be undone.");
+  if (!confirmDelete) return;
+
+  try {
+    const res = await fetch(
+      `https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(roomId)}/leave`,
+      {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${this.accessToken}` }
+      }
+    );
+
+    if (res.ok) {
+      await this.fetchRoomsWithNames();
+      if (this.rooms.length > 0) {
+        this.roomId = this.rooms[0].roomId;
+      } else {
+        this.roomId = "";
+        this.messages = [];
+      }
+    }
+
+  } catch (e) {
+    console.error("Delete room error:", e);
+  }
+}
+
+
+/* ======================
+   RENAME MODE HELPERS
+====================== */
+function startRename(roomId, currentName) {
+  this.renameMode = roomId;
+  this.renameText = currentName;
+}
+
+function cancelRename() {
+  this.renameMode = null;
+  this.renameText = "";
+}
+
+
+/* ======================
+   SWITCH ROOM
+====================== */
 function switchRoom(roomId) {
-  if (roomId) this.roomId = roomId;
+  this.roomId = roomId;
   this.messages = [];
-  this.lastSyncToken = '';
+  this.lastSyncToken = "";
   this.fetchMessages();
 }
 
-// ----------------------------
-// ✅ Запрошення користувача
-// ----------------------------
-async function inviteUserToRoom() {
-  if (!this.inviteUser.trim() || !this.roomId) {
-    console.warn('No inviteUser or roomId');
-    return;
-  }
 
-  try {
-    const res = await fetch(`https://matrix.org/_matrix/client/r0/rooms/${this.roomId}/invite`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.accessToken}`
-      },
-      body: JSON.stringify({ user_id: this.inviteUser.trim() })
-    });
-
-    const data = await res.json();
-
-    if (data.errcode) {
-      console.error('Invite failed:', data);
-      alert('Invite failed: ' + (data.error || 'Unknown error'));
-    } else {
-      alert(`${this.inviteUser} invited to ${this.roomId}`);
-      this.inviteUser = '';
-      await this.fetchRoomsWithNames();
-    }
-  } catch (e) {
-    console.error('Invite error:', e);
-    alert('Invite error: ' + e.message);
-  }
-}
-
-// ----------------------------
-// ✅ Приєднання до кімнати
-// ----------------------------
-async function joinRoom() {
-  if (!this.joinRoomId.trim()) return;
-
-  try {
-    const res = await fetch(`https://matrix.org/_matrix/client/r0/join/${encodeURIComponent(this.joinRoomId.trim())}`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${this.accessToken}` }
-    });
-
-    const data = await res.json();
-
-    if (data.room_id) {
-      this.roomId = this.joinRoomId.trim();
-      this.joinRoomId = '';
-      this.messages = [];
-      this.lastSyncToken = '';
-      await this.fetchRoomsWithNames();
-      this.fetchMessages();
-    } else {
-      console.error('Join failed:', data);
-      alert('Join failed: ' + (data.error || 'Unknown error'));
-    }
-  } catch (e) {
-    console.error('Join room error:', e);
-    alert('Join room error: ' + e.message);
-  }
-}
+/* ======================
+   EXPORT FOR ALPINE
+====================== */
+export {
+  createRoom,
+  fetchRoomsWithNames,
+  switchRoom,
+  renameRoom,
+  deleteRoom,
+  startRename,
+  cancelRename
+};
