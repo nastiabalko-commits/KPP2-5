@@ -2,19 +2,18 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
-// Функція для створення вікна
+
 const createWindow = () => {
-  // Створюємо нове вікно браузера
+  
   const win = new BrowserWindow({
     width: 800,
     height: 600
   });
 
-  // Завантажуємо файл index.html у це вікно
+  
   win.loadFile('index.html');
 };
 
-// Викликаємо функцію createWindow(), коли Electron готовий
 app.whenReady().then(() => {
   createWindow();
 

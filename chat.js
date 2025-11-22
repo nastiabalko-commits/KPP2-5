@@ -1,6 +1,3 @@
-/* ===========================================
-      SEND MESSAGE (КП2-10)
-=========================================== */
 async function sendMessage() {
   if (!this.newMessage.trim() || !this.roomId) return;
 
@@ -40,12 +37,7 @@ async function sendMessage() {
 }
 
 
-/* ===========================================
-      FETCH MESSAGES (КП2-10)
-      + редагування
-      + видалення
-      + звук
-=========================================== */
+
 async function fetchMessages() {
   if (!this.accessToken || !this.roomId) return;
 
@@ -68,13 +60,13 @@ async function fetchMessages() {
 
     room.timeline?.events?.forEach(ev => {
 
-      /* === DELETE === */
+    
       if (ev.type === "m.room.redaction") {
         this.messages = this.messages.filter(m => m.id !== ev.redacts);
         return;
       }
 
-      /* === EDIT (replacement) === */
+      
       if (
         ev.type === "m.room.message" &&
         ev.content?.["m.relates_to"]?.rel_type === "m.replace"
@@ -116,27 +108,16 @@ async function fetchMessages() {
 }
 
 
-/* ===========================================
-      START EDIT 
-=========================================== */
 function startEdit(id, text) {
   this.editMode = id;
   this.editText = text;
 }
 
-
-/* ===========================================
-      CANCEL EDIT
-=========================================== */
 function cancelEdit() {
   this.editMode = "";
   this.editText = "";
 }
 
-
-/* ===========================================
-      SAVE EDIT (КП2-10)
-=========================================== */
 async function saveEdit(id) {
   if (!this.editText.trim()) return;
 
@@ -173,10 +154,6 @@ async function saveEdit(id) {
   }
 }
 
-
-/* ===========================================
-      DELETE MESSAGE (КП2-10)
-=========================================== */
 async function deleteMessage(id) {
   try {
     await fetch(
@@ -198,9 +175,6 @@ async function deleteMessage(id) {
 }
 
 
-/* ===========================================
-      EXPORT (для chatApp())
-=========================================== */
 window.chatModule = {
   sendMessage,
   fetchMessages,
